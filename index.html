@@ -20,10 +20,20 @@
   </fieldset>
   <label class="inline-field">開始時の向き °<input id="player-yaw" type="number" min="-180" max="180" step="5" value="29.8"></label>
   <div class="small-actions"><button id="undo">↶ 元に戻す</button><button id="redo">↷ やり直す</button></div>
-  <div class="panel-heading inspector-title">PROJECT</div><div class="small-actions"><button id="save-scene">↓ 設定を保存</button><button id="load-scene">↑ 設定を開く</button></div>
+  <div class="panel-heading inspector-title">PROJECT</div><div class="small-actions"><button id="save-scene">↓ 名前を付けて保存</button><button id="load-scene">↑ 保存済みを開く</button></div>
+  <p id="saved-path" class="editor-help">保存先：プロジェクト内の scenes/</p>
   <input id="scene-file" type="file" accept=".json,application/json" hidden><button id="reset-scene" class="text-button">サンプル配置に戻す</button>
   <p class="editor-help">クリックで選択。矢印をドラッグして移動。<br>余白ドラッグで回転、右ドラッグで平行移動、<br>ホイールでズーム。保存は配置設定のみ。</p>
 </section>
+<dialog id="scene-dialog" aria-labelledby="scene-dialog-title">
+  <h2 id="scene-dialog-title">シーンを保存</h2><p>保存先：Sci-Fi Rooms / scenes</p>
+  <label id="save-name-label">シーン名<input id="scene-name" type="text" maxlength="64" value="aurelia" autocomplete="off" placeholder="例：宇宙基地_ラウンジ"></label>
+  <p id="save-explanation">同じ名前でも上書きせず、001、002…と連番で残します。</p>
+  <label for="saved-scenes">保存済みのバックアップ（新しい順）</label><select id="saved-scenes" size="7" aria-label="保存済みのバックアップ"></select>
+  <p id="scene-dialog-status" role="status" aria-live="polite"></p>
+  <div class="small-actions"><button id="scene-import">既存JSONを取り込む</button><button id="scene-refresh">一覧を更新</button></div>
+  <div class="small-actions"><button id="scene-cancel">キャンセル</button><button id="scene-confirm">連番で保存</button></div>
+</dialog>
 <div id="mission" hidden></div><div id="interaction" hidden></div><div id="editor-message" role="status" aria-live="polite"></div>
 <header><div class="brand"><span class="symbol">✳</span><div>AURELIA<small>OFF-WORLD LIVING / HABITAT 07</small></div></div><div class="status"><i></i> LIFE SUPPORT ONLINE <span>22.4° C</span></div></header>
 <aside><span class="eyebrow">YOUR QUIET CORNER OF THE COSMOS</span><h1>遠い星の、<br>いつもの居場所。</h1><p>窓辺でひと息。それから、星の向こうへ。</p><div class="rule"></div><span class="location" id="location">01 / 居住ラウンジ</span></aside>

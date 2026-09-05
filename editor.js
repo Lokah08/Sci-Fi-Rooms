@@ -69,8 +69,32 @@ export function createEditor({THREE,scene,camera,canvas,records,staticColliders,
   $('player-yaw').onchange=()=>{remember();player.yaw=THREE.MathUtils.degToRad(THREE.MathUtils.clamp(Number($('player-yaw').value)||0,-180,180));syncSpawn();refreshInspector();};
   $('undo').onclick=()=>{if(playing||!undo.length)return;redo.push(snapshot());apply(undo.pop());dirty=true;notify('編集を元に戻しました');};
   $('redo').onclick=()=>{if(playing||!redo.length)return;undo.push(snapshot());apply(redo.pop());dirty=true;notify('編集をやり直しました');};
-  $('save-scene').onclick=()=>{try{const data=snapshot();validateScene(data,new Set(recordMap.keys()));const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='aurelia.scene.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);dirty=false;notify('配置設定を保存しました。GLB本体は含まれません。');}catch(e){notify(e.message);}};
-  $('load-scene').onclick=()=>$('scene-file').click();
+  let dialogMode='save',savedFiles=[];
+  async function requestScenes(url,options){const response=await fetch(url,options);let result;try{result=await response.json();}catch{throw Error('保存用サーバーを起動し直してください（Start.bat）。');}if(!response.ok)throw Error(result.error||'保存用サーバーに接続できません。');return result;}
+  async function refreshFiles(){const selectedFile=$('saved-scenes').value;savedFiles=await requestScenes('/api/scenes');$('saved-scenes').replaceChildren(...savedFiles.map(file=>{const option=document.createElement('option');option.value=file.filename;option.textContent=`${file.filename}  /  ${new Date(file.modified).toLocaleString('ja-JP')}`;return option;}));if(savedFiles.some(f=>f.filename===selectedFile))$('saved-scenes').value=selectedFile;else $('saved-scenes').selectedIndex=savedFiles.length?0:-1;}
+  async function openSceneDialog(mode){dialogMode=mode;$('scene-dialog-title').textContent=mode==='save'?'名前を付けてシーンを保存':'バックアップから開く';$('save-name-label').hidden=mode!=='save';$('save-explanation').hidden=mode!=='save';$('scene-confirm').textContent=mode==='save'?'連番で保存':'選択した設定を開く';$('scene-dialog-status').textContent='一覧を読み込んでいます…';$('scene-dialog').showModal();try{await refreshFiles();$('scene-dialog-status').textContent=savedFiles.length?'GLB本体は保存ファイルに含まれません。':'保存済みのバックアップはまだありません。';}catch(e){$('scene-dialog-status').textContent=e.message;}}
+  $('save-scene').onclick=()=>openSceneDialog('save');$('load-scene').onclick=()=>openSceneDialog('open');
+  $('scene-cancel').onclick=()=>$('scene-dialog').close();
+  $('scene-refresh').onclick=async()=>{try{await refreshFiles();$('scene-dialog-status').textContent='一覧を更新しました';}catch(e){$('scene-dialog-status').textContent=e.message;}};
+  $('saved-scenes').onchange=()=>{const file=savedFiles.find(f=>f.filename===$('saved-scenes').value);if(file)$('scene-name').value=file.name;};
+  $('scene-import').onclick=()=>{$('scene-dialog').close();$('scene-file').click();};
+  $('scene-confirm').onclick=async()=>{
+    $('scene-confirm').disabled=true;
+    try{
+      if(dialogMode==='save'){
+        const data=snapshot();validateScene(data,new Set(recordMap.keys()));$('scene-dialog-status').textContent='保存しています…';
+        const result=await requestScenes('/api/scenes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('scene-name').value,scene:data})});
+        if(JSON.stringify(snapshot())===JSON.stringify(data))dirty=false;
+        $('saved-path').textContent=`保存済み：${result.path}`;$('scene-dialog').close();notify(`${result.path} に保存しました`);
+      }else{
+        const filename=$('saved-scenes').value;if(!filename)throw Error('バックアップを選択してください。');
+        const data=validateScene(await requestScenes(`/api/scenes/${encodeURIComponent(filename)}`),new Set(recordMap.keys()));
+        if(playing)throw Error('編集モードで読み込んでください。');remember();apply(data);dirty=false;
+        const file=savedFiles.find(f=>f.filename===filename);if(file)$('scene-name').value=file.name;
+        $('saved-path').textContent=`読み込み元：scenes/${filename}`;$('scene-dialog').close();notify(`${filename} を読み込みました（元に戻す操作も可能です）`);
+      }
+    }catch(e){$('scene-dialog-status').textContent=`処理できません：${e.message}`;}finally{$('scene-confirm').disabled=false;}
+  };
   $('scene-file').onchange=async()=>{const file=$('scene-file').files[0];if(!file)return;try{if(file.size>2_000_000)throw Error('設定ファイルは2MB以下にしてください。');const data=validateScene(JSON.parse(await file.text()),new Set(recordMap.keys()));if(playing)return;remember();apply(data);notify('シーン設定を読み込みました');}catch(e){notify(`読み込みできません：${e.message}`);}finally{$('scene-file').value='';}};
   $('reset-scene').onclick=()=>{remember();apply(initial);notify('サンプル配置に戻しました（元に戻す操作も可能です）');};
 
