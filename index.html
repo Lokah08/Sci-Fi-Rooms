@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AURELIA — 宇宙の小さな住まい</title><link rel="stylesheet" href="style.css"><script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/loaders/GLTFLoader.js":"./vendor/GLTFLoader.js","../utils/BufferGeometryUtils.js":"./vendor/BufferGeometryUtils.js"}}</script></head>
+<body><canvas id="scene" aria-label="宇宙基地の3Dシーン"></canvas>
+<header><div class="brand"><span class="symbol">✳</span><div>AURELIA<small>OFF-WORLD LIVING / HABITAT 07</small></div></div><div class="status"><i></i> LIFE SUPPORT ONLINE <span>22.4° C</span></div></header>
+<aside><span class="eyebrow">YOUR QUIET CORNER OF THE COSMOS</span><h1>遠い星の、<br>いつもの居場所。</h1><p>窓辺でひと息。それから、星の向こうへ。</p><div class="rule"></div><span class="location" id="location">01 / 居住ラウンジ</span></aside>
+<nav aria-label="シーン設定"><div class="segment"><button id="day" class="active" aria-pressed="true">☀ 昼</button><button id="night" aria-pressed="false">☾ 夜</button></div><button id="home" title="部屋のスタート位置へ戻る">⌂ 部屋へ戻る</button><button id="walk">自由に見回す ↗</button></nav>
+<div id="loading">居住区を準備しています <span id="progress">0%</span></div><div id="crosshair">+</div>
+<footer><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>移動</span><b>·</b><span>ドラッグで視点を回転</span><b>·</b><kbd>Shift</kbd><span>速く移動</span><b>·</b><kbd>Esc</kbd><span>マウス解除</span></div><div class="coordinates">KEPLER OUTPOST <span> / </span> <span id="time">SOL 128 · DAYLIGHT</span></div></footer>
+<div id="hint">右手の開いたエアロックから、外へ歩けます</div><script type="module" src="main.js"></script></body></html>
