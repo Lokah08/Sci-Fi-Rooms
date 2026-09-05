@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateScene,movement,isBlocked} from './scene-format.js';
+const fixture=()=>({format:'aurelia-editor',version:1,night:0,player:{position:[4.9,0,4.1],yaw:.52},objects:[{id:'asset-0',position:[-2.8,.07,-2.8],rotation:[0,Math.PI/2,0],scale:[1,1,1],visible:true,solid:true}]});
+test('placement JSON round trip preserves values and has no asset data',()=>{const data=fixture();assert.deepEqual(validateScene(JSON.parse(JSON.stringify(data)),new Set(['asset-0'])),data);assert.equal(JSON.stringify(data).includes('data:'),false);});
+test('invalid transforms, versions, spawn and missing IDs fail before application',()=>{for(const change of [d=>d.version=2,d=>d.objects[0].scale[0]=0,d=>d.objects[0].position[0]=Infinity,d=>d.objects[0].id='unknown',d=>d.player.position[1]=5,d=>d.objects=[]]){const d=fixture();change(d);assert.throws(()=>validateScene(d,new Set(['asset-0'])));}});
+test('duplicate IDs are rejected',()=>{const d=fixture();d.objects.push(structuredClone(d.objects[0]));assert.throws(()=>validateScene(d,new Set(['asset-0','asset-1'])));});
+test('forward follows player yaw and diagonal movement is normalized',()=>{const straight=movement(0,1,0,.02);assert.equal(straight[0],0);assert.ok(straight[1]<0);const diagonal=movement(0,1,1,.02);assert.ok(Math.abs(Math.hypot(...straight)-Math.hypot(...diagonal))<1e-9);assert.ok(movement(-Math.PI/2,1,0,.02)[0]>0);});
+test('large delta is capped to avoid tunneling through walls',()=>assert.deepEqual(movement(0,1,0,10),movement(0,1,0,.05)));
+test('closed airlock blocks passage; open airlock allows both directions',()=>{const walls=[{minX:7.6,maxX:8.4,minZ:-6.5,maxZ:-1.7},{minX:7.6,maxX:8.4,minZ:1.3,maxZ:6.5}];for(const x of [7.7,8,8.3])assert.equal(isBlocked(x,-.2,walls),false);assert.equal(isBlocked(8,3,walls),true);assert.equal(isBlocked(8,-.2,[...walls,{minX:7.66,maxX:8.34,minZ:-1.79,maxZ:1.39}]),true);assert.equal(isBlocked(221,0,[]),true);});

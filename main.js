@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {createEditor} from './editor.js';
 
 const canvas=document.querySelector('#scene');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
@@ -12,12 +13,15 @@ const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.08,1600);
 camera.rotation.order='YXZ';
 let yaw=0,pitch=0,night=0,targetNight=0;
 const colliders=[];
+const records=[];
+let boxNumber=0,lightNumber=0;
+function register(object,id,name,category,solid=false){object.name=name;records.push({object,id,name,category,solid});return object;}
 const mat=(color,metalness=0,roughness=0.7)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
 const cream=mat('#d2c9b2',0.25),dark=mat('#253a40',0.45),floorMat=mat('#637170',0.25),wood=mat('#927051'),gold=mat('#c08b50',0.5);
 const warm=new THREE.MeshStandardMaterial({color:'#ffe0a1',emissive:'#ffc376',emissiveIntensity:3});
 const teal=new THREE.MeshStandardMaterial({color:'#8be6df',emissive:'#55c9d0',emissiveIntensity:2});
-function box(w,h,d,x,y,z,m,solid=false){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);if(solid)colliders.push({minX:x-w/2-.24,maxX:x+w/2+.24,minZ:z-d/2-.24,maxZ:z+d/2+.24});return o;}
-function light(color,intensity,x,y,z,distance=15){const l=new THREE.PointLight(color,intensity,distance,2);l.position.set(x,y,z);scene.add(l);return l;}
+function box(w,h,d,x,y,z,m,solid=false){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return register(o,`box-${++boxNumber}`,`${solid?'壁・家具':'建築パーツ'} ${boxNumber}`,'structure',solid);}
+function light(color,intensity,x,y,z,distance=15){const l=new THREE.PointLight(color,intensity,distance,2);l.position.set(x,y,z);scene.add(l);return register(l,`light-${++lightNumber}`,`室内照明 ${lightNumber}`,'light');}
 const hemi=new THREE.HemisphereLight('#ffe3ba','#665146',2.2);scene.add(hemi);
 const sun=new THREE.DirectionalLight('#ffe0ae',3.1);sun.position.set(-25,35,-35);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-24,right:24,top:24,bottom:-24,near:1,far:120});sun.shadow.normalBias=.035;scene.add(sun);
 light('#ffc38a',55,-3,3.2,0);light('#ffd7a2',45,3,3.1,2);light('#8cdbec',25,4,2,-4);
@@ -83,26 +87,20 @@ const starsGeo=new THREE.BufferGeometry();const starPositions=[];for(let i=0;i<2
 // Original GLB meshes are normalized from their authored bounds, retaining textures.
 const specs=[['table_001',-2.8,.07,-2.8,1.65,Math.PI/2],['seat_003',.1,0,-2.3,1.2,-Math.PI/2],['seat_003',.1,0,-4,1.2,-Math.PI/2],['flower_001',-6.8,0,-5.4,1.9,0],['flower_003',6.7,0,-5.5,1.65,0],['flower_005',1.7,.96,5.8,.5,0],['bed_001',-5.7,.13,4.7,2.8,0],['coffee_machine_001',4.4,.96,5.8,.65,Math.PI],['cup_001',-2.9,.43,-2.8,.15,0],['cup_002',3.7,.96,5.7,.15,0],['laptop_001',2.5,.96,5.7,.6,Math.PI],['lamp_001',-6.9,.55,3.1,.65,0],['drawer_001',-6.9,0,3.1,.6,0],['pillow_001',-5.7,.72,5.4,.6,0],['flower_008',6.5,0,3.9,1.3,0],['wall_computer_001',7.75,1.4,-3.4,.8,-Math.PI/2]];
 let loaded=0;const failures=[];const loader=new GLTFLoader();
-await Promise.all(specs.map(async([name,x,y,z,size,rot])=>{try{const gltf=await loader.loadAsync(`./assets/${name}.glb`);const o=gltf.scene;const bounds=new THREE.Box3().setFromObject(o),s=bounds.getSize(new THREE.Vector3());o.scale.setScalar(size/Math.max(s.x,s.y,s.z));const b=new THREE.Box3().setFromObject(o),center=b.getCenter(new THREE.Vector3());o.position.set(-center.x,-b.min.y,-center.z);const group=new THREE.Group();group.add(o);group.rotation.y=rot;group.position.set(x,y,z);o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});scene.add(group);if(['bed_001','seat_003','table_001','drawer_001'].includes(name)){const b=new THREE.Box3().setFromObject(group);colliders.push({minX:b.min.x-.2,maxX:b.max.x+.2,minZ:b.min.z-.2,maxZ:b.max.z+.2});}}catch(e){console.error(name,e);failures.push(name);}document.querySelector('#progress').textContent=`${Math.round(++loaded/specs.length*100)}%`;}));
+await Promise.all(specs.map(async([name,x,y,z,size,rot],index)=>{try{const gltf=await loader.loadAsync(`./assets/${name}.glb`);const o=gltf.scene;const bounds=new THREE.Box3().setFromObject(o),s=bounds.getSize(new THREE.Vector3());o.scale.setScalar(size/Math.max(s.x,s.y,s.z));const b=new THREE.Box3().setFromObject(o),center=b.getCenter(new THREE.Vector3());o.position.set(-center.x,-b.min.y,-center.z);const group=new THREE.Group();group.add(o);group.rotation.y=rot;group.position.set(x,y,z);o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});scene.add(group);register(group,`asset-${index}`,name,'asset',['bed_001','seat_003','table_001','drawer_001'].includes(name));}catch(e){console.error(name,e);failures.push(name);}document.querySelector('#progress').textContent=`${Math.round(++loaded/specs.length*100)}%`;}));
 document.querySelector('#loading').hidden=!failures.length;if(failures.length)document.querySelector('#loading').textContent=`読み込み失敗: ${failures.join(', ')}。再読み込みしてください。`;
 
-const keys=new Set();function reset(){camera.position.set(4.9,1.68,4.1);yaw=.52;pitch=-.045;}reset();
-document.querySelector('#home').onclick=reset;
-function setNight(v){targetNight=v;document.querySelector('#day').classList.toggle('active',!v);document.querySelector('#night').classList.toggle('active',!!v);document.querySelector('#day').setAttribute('aria-pressed',String(!v));document.querySelector('#night').setAttribute('aria-pressed',String(!!v));document.querySelector('#time').textContent=v?'SOL 128 · NIGHTFALL':'SOL 128 · DAYLIGHT';}
-document.querySelector('#day').onclick=()=>setNight(0);document.querySelector('#night').onclick=()=>setNight(1);
-document.querySelector('#walk').onclick=()=>{canvas.requestPointerLock?.()?.catch(()=>{document.querySelector('#hint').textContent='ドラッグでも自由に見回せます';});};
-document.addEventListener('pointerlockchange',()=>{document.body.classList.toggle('locked',document.pointerLockElement===canvas);keys.clear();});
-let drag=false;canvas.addEventListener('pointerdown',e=>{if(e.button===0){drag=true;canvas.setPointerCapture(e.pointerId);}});canvas.addEventListener('pointerup',()=>drag=false);canvas.addEventListener('lostpointercapture',()=>drag=false);
-document.addEventListener('pointermove',e=>{if(drag||document.pointerLockElement===canvas){yaw-=e.movementX*.0022;pitch=THREE.MathUtils.clamp(pitch-e.movementY*.0022,-1.35,1.35);}});
-document.addEventListener('keydown',e=>{if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code)){e.preventDefault();keys.add(e.code);}if(e.code==='KeyN')setNight(1-targetNight);});document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();drag=false;});
-function blocked(x,z){return Math.abs(x)>220||Math.abs(z)>220||colliders.some(b=>x>b.minX&&x<b.maxX&&z>b.minZ&&z<b.maxZ);}
+camera.position.set(4.9,1.68,4.1);camera.rotation.set(-.045,.52,0);
 const dayColor=new THREE.Color('#c99f80'),nightColor=new THREE.Color('#101b32'),dayHemi=new THREE.Color('#ffe3ba'),nightHemi=new THREE.Color('#779ac9');
-let previous=performance.now();function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-previous)/1000,.05);previous=now;
+const app=createEditor({THREE,scene,camera,canvas,records,staticColliders:colliders,terrainHeight,failures,
+  getNight:()=>targetNight,
+  setNight(v){targetNight=v;document.querySelector('#day').classList.toggle('active',!v);document.querySelector('#night').classList.toggle('active',!!v);document.querySelector('#day').setAttribute('aria-pressed',String(!v));document.querySelector('#night').setAttribute('aria-pressed',String(!!v));document.querySelector('#time').textContent=v?'SOL 128 · NIGHTFALL':'SOL 128 · DAYLIGHT';}
+});
+document.querySelector('#day').onclick=()=>app.setNight(0);document.querySelector('#night').onclick=()=>app.setNight(1);
+let previous=performance.now();
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-previous)/1000,.05);previous=now;
 night=THREE.MathUtils.damp(night,targetNight,3,dt);scene.background.copy(dayColor).lerp(nightColor,night);scene.fog.color.copy(scene.background);hemi.color.copy(dayHemi).lerp(nightHemi,night);hemi.intensity=2.2-night*1.65;sun.intensity=3.1-night*2.9;sun.color.set(night>.5?'#accbff':'#ffe0ae');starMat.opacity=night*.95;renderer.toneMappingExposure=1.15+night*.2;
-let f=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown')),s=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));const len=Math.hypot(f,s);if(len){const speed=(keys.has('ShiftLeft')||keys.has('ShiftRight')?6:2.7)*dt/len;const dx=(-Math.sin(yaw)*f+Math.cos(yaw)*s)*speed,dz=(-Math.cos(yaw)*f-Math.sin(yaw)*s)*speed;if(!blocked(camera.position.x+dx,camera.position.z))camera.position.x+=dx;if(!blocked(camera.position.x,camera.position.z+dz))camera.position.z+=dz;}
-const inside=Math.abs(camera.position.x)<8.3&&Math.abs(camera.position.z)<6.7;camera.position.y=1.68+(inside?0:Math.max(-.15,terrainHeight(camera.position.x,camera.position.z)));camera.rotation.set(pitch,yaw,0);document.querySelector('#location').textContent=inside?'01 / 居住ラウンジ':'02 / 惑星の砂丘';renderer.render(scene,camera);}
+app.update(dt);renderer.render(scene,camera);}
 requestAnimationFrame(frame);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-// Read-only diagnostics for local verification.
-window.sceneInfo={scene,camera,colliders,failures,assetCount:loaded,renderer};
 
 
